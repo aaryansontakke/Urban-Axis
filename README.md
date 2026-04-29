@@ -1,16 +1,23 @@
-# React + Vite
+# Urban Axis - Tours & Travels
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Urban Axis Corporate Services Pvt Ltd is a premium travel management agency offering luxury tours, domestic and international holiday packages, corporate MICE (Meetings, Incentives, Conferences, and Exhibitions) services, and comprehensive travel solutions including Visa, Passport, and Forex assistance.
 
-Currently, two official plugins are available:
+## Features
+- **Luxury Tours**: Specialized tour packages for India and International destinations.
+- **Corporate Services**: Tailored services for corporate travel and events.
+- **Modern UI**: A responsive, premium user interface built with React, Tailwind CSS, and Framer Motion.
+- **Seamless Integrations**: Integrated with a backend for managing travel enquiries and packages.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Tech Stack
+- Frontend: React (Vite), Tailwind CSS, Framer Motion, Lucide React
+- Backend: Node.js (Express)
+- Deployment: Netlify (Frontend), Vercel/Render (Backend)
 
-## React Compiler
+## Running Locally
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+To run the frontend locally:
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev
+```
