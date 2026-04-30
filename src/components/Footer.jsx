@@ -144,7 +144,7 @@ const Footer = () => {
 
     .bottom-bar {
       background-color: #0b0f1a;
-      padding: 15px 40px;
+      padding: 15px 90px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -255,12 +255,7 @@ const Footer = () => {
 
         <div className="bottom-bar">
           <div style={{ fontSize: '11px', color: '#94a3b8' }}>Copyright © 2026. URBAN AXIS CORPORATE SERVICES Pvt Ltd. All Rights Reserved.</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '8px', color: '#475569', fontWeight: '700' }}>POWERED BY</span>
-            <a href="https://royalswebtechpvtltd.com/" target="_blank" rel="noreferrer">
-              <img src='/rwtlogo.png' alt="RWT" style={{ height: '30px', filter: 'brightness(1.1)' }} />
-            </a>
-          </div>
+          <div style={{ fontSize: '11px', color: '#94a3b8' }}><a href="https://aaryan-portfolio-madebyme.netlify.app/" target="_blank" rel="noreferrer">Designed by Me.</a></div>
         </div>
       </footer>
     </>

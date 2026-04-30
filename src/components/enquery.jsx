@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Send, ChevronDown, Clock, ShieldCheck, Globe, Calendar, Users, MapPin, X, ChevronRight, Briefcase, Wallet } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { db } from '../firebaseConfig';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const EnquiryPage = () => {
   const initialFormState = {
@@ -34,11 +36,20 @@ const EnquiryPage = () => {
     e.preventDefault();
     setSubmissionStatus('loading');
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await addDoc(collection(db, 'enquiries'), {
+        ...formData,
+        fullName: formData.fullName,
+        phone: formData.phoneNumber, // map to expected field name in admin
+        email: formData.email,
+        serviceType: serviceType,
+        status: 'new',
+        created_at: serverTimestamp()
+      });
       setSubmissionStatus('success');
       setFormData(initialFormState);
       setServiceType("");
     } catch (error) {
+      console.error("Error submitting enquiry:", error);
       setSubmissionStatus('error');
     }
   };

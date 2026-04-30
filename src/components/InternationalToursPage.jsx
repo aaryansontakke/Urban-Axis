@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
+import { db } from '../firebaseConfig';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, ArrowRight, ArrowLeft, Globe } from 'lucide-react';
 import { PackageCard, EnquiryModal } from './IndiaToursPage';
@@ -28,18 +29,43 @@ const Loader = () => (
 /* ─────────────────────────────────────────────────────────
    INTERNATIONAL LIST — Updated with International1.jpeg
 ────────────────────────────────────────────────────────── */
+import { getDoc, doc } from 'firebase/firestore';
+
 const InternationalList = () => {
   const [cats, setCats] = useState([]);
+  const [heroImage, setHeroImage] = useState("/International1.jpeg"); // Fallback
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.from('tour_categories')
-      .select('*').eq('type', 'international').eq('is_active', true).order('display_order')
-      .then(({ data }) => { setCats(data || []); setLoading(false); });
+    const fetchCats = async () => {
+      try {
+        const q = query(
+          collection(db, 'tour_categories'), 
+          where('type', '==', 'international'), 
+          where('is_active', '==', true)
+        );
+        const querySnapshot = await getDocs(q);
+        const data = querySnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        setCats(data);
+
+        const settingsSnap = await getDoc(doc(db, 'settings', 'international_hero_image'));
+        if (settingsSnap.exists()) {
+          setHeroImage(settingsSnap.data().value);
+        }
+      } catch (err) {
+        console.error("Error fetching categories:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCats();
   }, []);
 
   if (loading) return <Loader />;
+
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -49,7 +75,7 @@ const InternationalList = () => {
         <div className="absolute inset-0">
           {/* Aapki Image Yahan Add Ho Gayi Hai */}
           <img
-            src="/International1.jpeg"
+            src={heroImage}
             alt="International Background"
             className="w-full h-full object-cover"
           />
@@ -128,15 +154,33 @@ const InternationalDetail = () => {
 
   useEffect(() => {
     const load = async () => {
-      const { data: catData } = await supabase
-        .from('tour_categories').select('*').eq('slug', slug).eq('type', 'international').single();
-      if (!catData) { navigate('/tours/international'); return; }
-      setCat(catData);
-      const { data: pkgData } = await supabase
-        .from('tour_packages').select('*')
-        .eq('category_id', catData.id).eq('is_active', true).order('display_order');
-      setPackages(pkgData || []);
-      setLoading(false);
+      try {
+        const catQuery = query(
+          collection(db, 'tour_categories'), 
+          where('slug', '==', slug), 
+          where('type', '==', 'international'),
+          limit(1)
+        );
+        const catSnap = await getDocs(catQuery);
+        if (catSnap.empty) { navigate('/tours/international'); return; }
+        
+        const catData = { id: catSnap.docs[0].id, ...catSnap.docs[0].data() };
+        setCat(catData);
+
+        const pkgQuery = query(
+          collection(db, 'tour_packages'),
+          where('category_id', '==', catData.id),
+          where('is_active', '==', true),
+          orderBy('display_order')
+        );
+        const pkgSnap = await getDocs(pkgQuery);
+        const pkgData = pkgSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setPackages(pkgData);
+      } catch (err) {
+        console.error("Error loading international tour detail:", err);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, [slug, navigate]);

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
+import { db } from '../firebaseConfig';
+import { collection, query, where, getDocs, orderBy, limit, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Ship, MapPin, ArrowRight } from 'lucide-react';
 
 /* ── Badge colours — same as original ───────────────────────── */
@@ -28,8 +29,21 @@ const EnquiryModal = ({ pkg, onClose }) => {
 
   const submit = async e => {
     e.preventDefault(); setSending(true);
-    await supabase.from('enquiries').insert({ ...form, package_id: pkg.id });
-    setDone(true); setSending(false);
+    try {
+      await addDoc(collection(db, 'enquiries'), {
+        ...form,
+        package_id: pkg.id,
+        packageName: pkg.name,
+        status: 'new',
+        created_at: serverTimestamp()
+      });
+      setDone(true);
+    } catch (err) {
+      console.error("Error submitting enquiry:", err);
+      alert("Failed to send enquiry.");
+    } finally {
+      setSending(false);
+    }
   };
 
   const F = { 
@@ -163,14 +177,40 @@ const HomeFeaturedPackages = () => {
   const [enquiry, setEnquiry]   = useState(null);
 
   useEffect(() => {
-    supabase
-      .from('tour_packages')
-      .select('*, tour_categories(name, type, slug)')
-      .eq('is_featured', true)
-      .eq('is_active', true)
-      .order('display_order')
-      .limit(12)
-      .then(({ data }) => { setPackages(data || []); setLoading(false); });
+    const fetchFeatured = async () => {
+      try {
+        const [pkgSnap, catSnap] = await Promise.all([
+          getDocs(query(
+            collection(db, 'tour_packages'),
+            where('is_featured', '==', true),
+            where('is_active', '==', true),
+            limit(24) // Fetch a bit more and then sort/limit
+          )),
+          getDocs(collection(db, 'tour_categories'))
+        ]);
+
+        const categories = catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const pkgs = pkgSnap.docs
+          .map(doc => {
+            const data = doc.data();
+            const category = categories.find(c => c.id === data.category_id);
+            return {
+              id: doc.id,
+              ...data,
+              tour_categories: category
+            };
+          })
+          .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
+          .slice(0, 12);
+
+        setPackages(pkgs);
+      } catch (err) {
+        console.error("Error loading featured packages:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFeatured();
   }, []);
 
   const filtered = packages.filter(p => {

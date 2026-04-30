@@ -5,7 +5,8 @@ import {
   Plane, Hotel, Utensils, Activity, Car,
   Quote, Ship, Star, X, ChevronRight, MapPin, Clock, ArrowRight
 } from 'lucide-react';
-import { supabase } from '../supabaseClient';
+import { db } from '../firebaseConfig';
+import { collection, query, where, getDocs, orderBy, addDoc, serverTimestamp, limit } from 'firebase/firestore';
 
 /* ─────────────────────────────────────────────────────────────
    STATIC DATA
@@ -46,10 +47,23 @@ const EnquiryModal = ({ pkg, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSending(true);
-    await supabase.from('enquiries').insert({ ...form, package_id: pkg.id });
-    setDone(true);
-    setSending(false);
+    try {
+      await addDoc(collection(db, 'enquiries'), {
+        ...form,
+        package_id: pkg.id,
+        packageName: pkg.name,
+        status: 'new',
+        created_at: serverTimestamp()
+      });
+      setDone(true);
+    } catch (err) {
+      console.error("Error submitting enquiry:", err);
+      alert("Failed to send enquiry.");
+    } finally {
+      setSending(false);
+    }
   };
+
 
   return (
     <motion.div
@@ -242,28 +256,39 @@ const CategoryPage = ({ type = 'india' }) => {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const { data: catData } = await supabase
-        .from('tour_categories')
-        .select('*')
-        .eq('slug', slug)
-        .eq('type', type)
-        .single();
+      try {
+        const catQuery = query(
+          collection(db, 'tour_categories'),
+          where('slug', '==', slug),
+          where('type', '==', type),
+          limit(1)
+        );
+        const catSnap = await getDocs(catQuery);
+        
+        if (catSnap.empty) {
+          navigate(type === 'india' ? '/tours/india' : '/tours/international');
+          return;
+        }
 
-      if (!catData) {
-        navigate(type === 'india' ? '/tours/india' : '/tours/international');
-        return;
+        const catData = { id: catSnap.docs[0].id, ...catSnap.docs[0].data() };
+        setCat(catData);
+
+        const pkgQuery = query(
+          collection(db, 'tour_packages'),
+          where('category_id', '==', catData.id),
+          where('is_active', '==', true)
+        );
+        const pkgSnap = await getDocs(pkgQuery);
+        const pkgData = pkgSnap.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
+        setPackages(pkgData);
+      } catch (err) {
+        console.error("Error loading category page:", err);
+      } finally {
+        setLoading(false);
       }
-      setCat(catData);
-
-      const { data: pkgData } = await supabase
-        .from('tour_packages')
-        .select('*')
-        .eq('category_id', catData.id)
-        .eq('is_active', true)
-        .order('display_order');
-
-      setPackages(pkgData || []);
-      setLoading(false);
     };
     load();
   }, [slug, type]);

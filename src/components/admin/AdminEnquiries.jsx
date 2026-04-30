@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../supabaseClient';
+import { db } from '../../firebaseConfig';
+import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { Search, Filter, Check, Phone, Mail, Calendar, Users, Trash2 } from 'lucide-react';
 
 const STATUS_COLORS = {
@@ -17,26 +18,51 @@ const AdminEnquiries = () => {
 
   const load = async () => {
     setLoading(true);
-    let q = supabase.from('enquiries').select('*, tour_packages(name, tour_categories(name))').order('created_at', { ascending: false });
-    if (status) q = q.eq('status', status);
-    const { data } = await q;
-    setEnquiries(data || []);
-    setLoading(false);
+    try {
+      const enquiriesRef = collection(db, 'enquiries');
+      let q = query(enquiriesRef, orderBy('created_at', 'desc'));
+      
+      if (status) {
+        q = query(enquiriesRef, where('status', '==', status), orderBy('created_at', 'desc'));
+      }
+
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        // Convert Firestore timestamp to Date if needed
+        created_at: doc.data().created_at?.toDate() || new Date()
+      }));
+      setEnquiries(data);
+    } catch (err) {
+      console.error("Error loading enquiries:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, [status]);
 
   const updateStatus = async (id, newStatus) => {
-    await supabase.from('enquiries').update({ status: newStatus }).eq('id', id);
-    load();
-    if (selected?.id === id) setSelected({ ...selected, status: newStatus });
+    try {
+      const enqRef = doc(db, 'enquiries', id);
+      await updateDoc(enqRef, { status: newStatus });
+      load();
+      if (selected?.id === id) setSelected({ ...selected, status: newStatus });
+    } catch (err) {
+      console.error("Error updating status:", err);
+    }
   };
 
   const deleteEnquiry = async (id) => {
     if (!confirm('Delete this enquiry?')) return;
-    await supabase.from('enquiries').delete().eq('id', id);
-    load();
-    if (selected?.id === id) setSelected(null);
+    try {
+      await deleteDoc(doc(db, 'enquiries', id));
+      load();
+      if (selected?.id === id) setSelected(null);
+    } catch (err) {
+      console.error("Error deleting enquiry:", err);
+    }
   };
 
   const filtered = enquiries.filter(e =>

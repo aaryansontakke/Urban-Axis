@@ -2,53 +2,63 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react'; // Icons import kiye
 
-const slides = [
-  {
-    img: "agra.jpg",
-    title: "AGRA",
-    sub: "Witness the timeless beauty of the Taj Mahal. A symbol of eternal love and a masterpiece of Mughal architecture."
-  },
-  {
-    img: "kerla.jpg",
-    title: "KERALA",
-    sub: "Escape to God's Own Country. Experience the tranquil backwaters and lush tea plantations."
-  },
-  {
-    img: "/varansi.jpeg",
-    title: "VARANASI",
-    sub: "The city is known worldwide for its many ghats—steps leading down the steep river bank to the water—where pilgrims perform rituals."
-  },
-  {
-    img: "/jaipur.jpg",
-    title: "JAIPUR",
-    sub: "Explore the Pink City's royal heritage. Majestic forts and Rajputana history await you."
-  },
-  {
-    img: "/pondi.jpeg",
-    title: "TAMIL NADU",
-    sub: "Mamallapuram, or Mahabalipuram, is a town on a strip of land between the Bay of Bengal and the Great Salt Lake, in the south Indian state of Tamil Nadu."
-  }
-];
+import { db } from '../firebaseConfig';
+import { collection, query, getDocs, orderBy } from 'firebase/firestore';
 
 const Herosection = () => {
+  const [slides, setSlides] = useState([]);
   const [current, setCurrent] = useState(0);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchSlides = async () => {
+      try {
+        const q = query(collection(db, 'hero_slides'), orderBy('display_order'));
+        const snap = await getDocs(q);
+        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (data.length > 0) {
+          setSlides(data);
+        } else {
+          // Fallback to initial hardcoded if empty
+          setSlides([
+            { image_url: "agra.jpg", title: "AGRA", subtitle: "Witness the timeless beauty of the Taj Mahal. A symbol of eternal love and a masterpiece of Mughal architecture." },
+            { image_url: "kerla.jpg", title: "KERALA", subtitle: "Escape to God's Own Country. Experience the tranquil backwaters and lush tea plantations." }
+          ]);
+        }
+      } catch (err) {
+        console.error("Error fetching hero slides:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSlides();
+  }, []);
 
   // Next Slide Logic
   const nextSlide = () => {
+    if (slides.length === 0) return;
     setCurrent((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
   };
 
   // Previous Slide Logic
   const prevSlide = () => {
+    if (slides.length === 0) return;
     setCurrent((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
   };
 
   // Automatic Slide Timer
   useEffect(() => {
+    if (slides.length === 0) return;
     const timer = setInterval(nextSlide, 5000);
     return () => clearInterval(timer);
-  }, [current]); // Added current to dependency to reset timer on manual click
+  }, [current, slides.length]); 
+
+  if (loading) return (
+    <div className="w-full h-[100vh] bg-black flex items-center justify-center">
+      <div className="text-blue-500 font-black animate-pulse">LOADING EXPERIENCE...</div>
+    </div>
+  );
 
   return (
     <section className="relative w-full h-[75vh] md:h-[100vh] overflow-hidden font-sans bg-black">
@@ -62,7 +72,7 @@ const Herosection = () => {
           }`}
         >
           <img
-            src={slide.img}
+            src={slide.image_url}
             alt={slide.title}
             className={`w-full h-full object-cover transform transition-transform duration-[7000ms] ease-out ${
               index === current ? "scale-110" : "scale-100"
@@ -100,13 +110,13 @@ const Herosection = () => {
           </span>
           
           <h1 className="text-white text-5xl md:text-8xl font-black uppercase tracking-tighter animate-slide-in leading-none">
-            {slides[current].title}
+            {slides[current]?.title}
           </h1>
           
           <div className="h-1 w-20 bg-blue-500 my-4 animate-slide-in delay-100"></div>
-
+ 
           <p className="text-gray-100 text-xs md:text-lg max-w-xl font-bold leading-relaxed animate-slide-in delay-200 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
-            {slides[current].sub}
+            {slides[current]?.subtitle}
           </p>
         </div>
 

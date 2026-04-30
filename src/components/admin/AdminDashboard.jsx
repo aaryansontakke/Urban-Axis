@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../supabaseClient';
+import { db } from '../../firebaseConfig';
+import { collection, query, where, getDocs, orderBy, limit, getCountFromServer } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
 import { Package, Globe, MessageSquare, Star, TrendingUp, Clock } from 'lucide-react';
 
@@ -24,24 +25,46 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const load = async () => {
-      const [
-        { count: totalPkg },
-        { count: indCat },
-        { count: intCat },
-        { count: featured },
-        { count: newEnq },
-        { data: recent },
-      ] = await Promise.all([
-        supabase.from('tour_packages').select('*', { count: 'exact', head: true }),
-        supabase.from('tour_categories').select('*', { count: 'exact', head: true }).eq('type','india'),
-        supabase.from('tour_categories').select('*', { count: 'exact', head: true }).eq('type','international'),
-        supabase.from('tour_packages').select('*', { count: 'exact', head: true }).eq('is_featured', true),
-        supabase.from('enquiries').select('*', { count: 'exact', head: true }).eq('status','new'),
-        supabase.from('enquiries').select('*, tour_packages(name)').order('created_at', { ascending: false }).limit(5),
-      ]);
-      setStats({ totalPkg, indCat, intCat, featured, newEnq });
-      setRecentEnquiries(recent || []);
-      setLoading(false);
+      try {
+        const pkgRef = collection(db, 'tour_packages');
+        const catRef = collection(db, 'tour_categories');
+        const enqRef = collection(db, 'enquiries');
+
+        const [
+          totalPkgSnap,
+          indCatSnap,
+          intCatSnap,
+          featuredSnap,
+          newEnqSnap,
+          recentSnap
+        ] = await Promise.all([
+          getCountFromServer(pkgRef),
+          getCountFromServer(query(catRef, where('type', '==', 'india'))),
+          getCountFromServer(query(catRef, where('type', '==', 'international'))),
+          getCountFromServer(query(pkgRef, where('is_featured', '==', true))),
+          getCountFromServer(query(enqRef, where('status', '==', 'new'))),
+          getDocs(query(enqRef, orderBy('created_at', 'desc'), limit(5)))
+        ]);
+
+        setStats({
+          totalPkg: totalPkgSnap.data().count,
+          indCat: indCatSnap.data().count,
+          intCat: intCatSnap.data().count,
+          featured: featuredSnap.data().count,
+          newEnq: newEnqSnap.data().count
+        });
+
+        const recent = recentSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          created_at: doc.data().created_at?.toDate() || new Date()
+        }));
+        setRecentEnquiries(recent);
+      } catch (err) {
+        console.error("Error loading dashboard stats:", err);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);
@@ -86,7 +109,7 @@ const AdminDashboard = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-sm font-medium truncate">{enq.name}</p>
-                  <p className="text-slate-400 text-xs truncate">{enq.tour_packages?.name || 'General'} · {enq.phone}</p>
+                  <p className="text-slate-400 text-xs truncate">{enq.packageName || 'General'} · {enq.phone}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${

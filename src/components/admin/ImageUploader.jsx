@@ -1,29 +1,9 @@
 
 import React, { useState, useRef } from 'react';
-import { supabase } from '../../supabaseClient';
 import { Upload, Link, Copy, Check, X, Image, Loader, AlertCircle } from 'lucide-react';
 
-/**
- * ImageUploader — Admin component
- *
- * SETUP (one-time in Supabase dashboard):
- * 1. Go to Storage → New Bucket
- * 2. Name it: "package-images"
- * 3. Toggle "Public bucket" ON
- * 4. Click Create
- * Done. No extra config needed.
- *
- * Usage in your admin form:
- *   <ImageUploader onUpload={(url) => setForm({...form, image_url: url})} />
- *
- * Props:
- *   onUpload(url)   — called with the public URL after upload
- *   folder          — optional subfolder, e.g. "gallery" or "hero" (default: "uploads")
- *   accept          — file types (default: "image/*")
- *   maxMB           — max file size in MB (default: 5)
- */
-
-const BUCKET = 'package-images'; // change if you named your bucket differently
+const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dt69gyvun/image/upload';
+const UPLOAD_PRESET = 'Urban Axis'; 
 
 const ImageUploader = ({
   onUpload,
@@ -42,7 +22,7 @@ const ImageUploader = ({
   const [finalUrl, setFinalUrl] = useState(currentUrl || '');
   const inputRef = useRef(null);
 
-  /* ── Upload file to Supabase Storage ── */
+  /* ── Upload file to Cloudinary ── */
   const handleFile = async (file) => {
     if (!file) return;
     setError('');
@@ -65,20 +45,23 @@ const ImageUploader = ({
     setUploading(true);
 
     try {
-      // Build unique filename: folder/timestamp-originalname
-      const ext      = file.name.split('.').pop();
-      const safeName = file.name.replace(/[^a-zA-Z0-9.]/g, '-').toLowerCase();
-      const filename = `${folder}/${Date.now()}-${safeName}`;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', folder);
 
-      const { error: uploadErr } = await supabase.storage
-        .from(BUCKET)
-        .upload(filename, file, { cacheControl: '3600', upsert: false });
+      const response = await fetch(CLOUDINARY_URL, {
+        method: 'POST',
+        body: formData,
+      });
 
-      if (uploadErr) throw uploadErr;
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error?.message || 'Upload failed');
+      }
 
-      // Get public URL
-      const { data } = supabase.storage.from(BUCKET).getPublicUrl(filename);
-      const publicUrl = data.publicUrl;
+      const data = await response.json();
+      const publicUrl = data.secure_url;
 
       setFinalUrl(publicUrl);
       setUrlInput(publicUrl);
@@ -86,7 +69,7 @@ const ImageUploader = ({
       onUpload && onUpload(publicUrl);
     } catch (err) {
       console.error('Upload error:', err);
-      setError(err.message || 'Upload failed. Check your Supabase bucket settings.');
+      setError(err.message || 'Upload failed. Check your Cloudinary settings.');
       setPreview(null);
     } finally {
       setUploading(false);

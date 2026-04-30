@@ -2,12 +2,39 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ArrowLeft, Compass } from 'lucide-react';
 
+import { db } from '../firebaseConfig';
+import { collection, query, getDocs, orderBy } from 'firebase/firestore';
+
 const BlogPage = () => {
+  const [blogs, setBlogs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedBlog, setSelectedBlog] = useState(null);
+
+  useEffect(() => {
+    const fetchBlogs = async () => {
+      try {
+        const q = query(collection(db, 'blogs'), orderBy('display_order'));
+        const snap = await getDocs(q);
+        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setBlogs(data);
+      } catch (err) {
+        console.error("Error fetching blogs:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBlogs();
+  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [selectedBlog]);
+
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-[#0f172a]">
+       <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
 
   const scrollToLocation = (id) => {
     const element = document.getElementById(id);
@@ -15,86 +42,9 @@ const BlogPage = () => {
       const headerOffset = 100;
       const elementPosition = element.getBoundingClientRect().top;
       const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: "smooth"
-      });
+      window.scrollTo({ top: offsetPosition, behavior: "smooth" });
     }
   };
-
-  const blogs = [
-    {
-      id: 1,
-      title: "Top 7 Places To Travel after Pandemic in India",
-      desc: "Beaches are forgotten by our minds and Beautiful hills are lost from our sight. Reconnect with nature in the post-pandemic era.",
-      category: "POST-PANDEMIC TRAVEL",
-      image: "/blog1.jpeg", 
-      borderPos: "left",
-      fullContent: {
-        intro: "Beaches are forgotten by our minds and Beautiful hills are lost from our sight. So many things changed upside down with the never forgotten virus corona. It became a tragic fate which reshaped the lives of every human being.",
-        motto: "LET THE BYGONES BE BYGONE",
-        subIntro: "Let’s move forward to the year 2021 and hope to live a new normal life.",
-        list: [
-          { name: "GOA", details: "GOA is the first region that became a green pandemic free zone. The lavish beaches and shining sand of GOA welcomes travelers from all region of India." },
-          { name: "HIMACHAL PRADESH", details: "Government of Himachal, opened the gates for people to visit the humongous mountains and fall in love with the floating clouds." },
-          { name: "COORG- Karnataka", details: "“The Scotland of India” is a must visit place that everyone should visit at least once in their life time." },
-          { name: "Andhra Pradesh & Telangana", details: "A unique combination of tradition, nature and modern trend could be witnessed when you visit cities like Hyderabad and Vizag." },
-          { name: "Tamilnadu", details: "Being surrounded by ocean on two sides and covered with a train of mountains Tamilnadu is one such a place that everyone should visit without fail." },
-          { name: "Uttarakhand- Valley of flowers", details: "Every year the valley is blessed with a variety of flowers which counts to a huge number." },
-          { name: "Pondicherry", details: "The union territory showcases a strong bond between the French culture and culture of tamilnadu." }
-        ],
-        note: "One kind note from us to you is that in this new normal life, adapt yourself to wear masks and maintain a personal hygiene."
-      }
-    },
-    {
-      id: 2,
-      title: "Best Place to Visit & Have a memorable Pongal 2021",
-      desc: "We all know that our 2020 wasn’t the way we expected it to be. Our lifestyle changed upside down and now we need that fresh breeze.",
-      category: "FESTIVAL SPECIAL",
-      image: "/blog22.jpeg", 
-      borderPos: "right",
-      fullContent: {
-        intro: "Life tossed us back and forth like a piece of paper. Our lifestyle changed upside down and now we all need that fresh breeze.",
-        motto: "VROOM!! VROOM!",
-        subIntro: "Having our financial crisis in mind, we came up with top 3 places to visit in tamilnadu with a low budget.",
-        list: [
-          { name: "Megamalai", details: "Beautiful hills and the tea plantations will soothe your heart." },
-          { name: "Coonoor", details: "The luke warm sunshine and mild breezy cold weather will melt and warm your heart." },
-          { name: "Yerkadu", details: "Yerkadu is well known for the hilly mountains and lush green sceneries." }
-        ],
-        note: "Despite spending money there is something extra when it comes to spending a quality time with your money."
-      }
-    },
-    {
-      id: 3,
-      title: "Rare Place to Visit in Tamil Nadu with Low Budget",
-      desc: "The first place in budget list is Megamalai which is located near kumuli. Explore hidden gems without breaking the bank.",
-      category: "BUDGET EXPLORATION",
-      image: "/blog3.jpeg", 
-      borderPos: "left",
-      fullContent: {
-        intro: "Explore rare places without spending too much. Reconnect with nature.",
-        motto: "BUDGET TREASURES",
-        subIntro: "Travelling is never complete without visiting the Queen and Princess of the Hills.",
-        list: [
-          { name: "Megamalai", details: "Beautiful hills and the tea plantations will soothe your heart." },
-          { name: "Theni", details: "The luke warm sunshine and mild breezy cold weather will melt and warm your heart." },
-          { name: "Pollachi", details: "Yerkadu is well known for the hilly mountains and lush green sceneries." },
-          { name: "Ooty", details: "The town of Ooty has everything within herself to mesmerize the visitors." }
-        ],
-        note: "Plan your trip with proper safety measures. Add these rare places to your bucket list!"
-      }
-    },
-    {
-      id: 4,
-      title: "Best places to visit in India this Valentine’s Day",
-      desc: "The one thing we look forward in the month of February is Valentine’s day.",
-      category: "ROMANTIC EXCURSION",
-      image: "/blog4.jpeg", 
-      borderPos: "right"
-    }
-  ];
 
   return (
     <div className="bg-[#fcfdfe] min-h-screen font-sans text-slate-700 selection:bg-blue-100">
@@ -122,18 +72,18 @@ const BlogPage = () => {
 
             {/* --- BLOG LISTING --- */}
             <div className="max-w-5xl mx-auto px-4 md:px-6 py-12 md:py-20 space-y-12 md:space-y-16">
-              {blogs.map((blog) => (
-                <motion.div key={blog.id} className={`flex flex-col ${blog.borderPos === 'left' ? 'md:flex-row' : 'md:flex-row-reverse'} items-center gap-6 md:gap-10`}>
+              {blogs.map((blog, idx) => (
+                <motion.div key={blog.id} className={`flex flex-col ${idx % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'} items-center gap-6 md:gap-10`}>
                   <div className="w-full md:w-1/2 overflow-hidden shadow-lg aspect-[4/3]">
-                    <img src={blog.image} alt={blog.title} className="w-full h-full object-cover opacity-100" />
+                    <img src={blog.image_url} alt={blog.title} className="w-full h-full object-cover opacity-100" />
                   </div>
-                  <div className={`w-full md:w-1/2 relative ${blog.borderPos === 'left' ? 'text-left' : 'text-right'}`}>
-                    <div className={`absolute top-0 ${blog.borderPos === 'left' ? 'left-0' : 'right-0'} w-8 md:w-12 h-8 md:h-12 border-t-2 ${blog.borderPos === 'left' ? 'border-l-2' : 'border-r-2'} border-blue-600`}></div>
+                  <div className={`w-full md:w-1/2 relative ${idx % 2 === 0 ? 'text-left' : 'text-right'}`}>
+                    <div className={`absolute top-0 ${idx % 2 === 0 ? 'left-0' : 'right-0'} w-8 md:w-12 h-8 md:h-12 border-t-2 ${idx % 2 === 0 ? 'border-l-2' : 'border-r-2'} border-blue-600`}></div>
                     <div className="pt-5 md:pt-6 px-4 md:px-6">
                       <p className="text-blue-600 font-bold text-[8px] md:text-[9px] tracking-widest uppercase mb-1">{blog.category}</p>
                       <h2 className="text-lg md:text-2xl font-black text-slate-900 uppercase mb-2 md:mb-3 leading-tight">{blog.title}</h2>
-                      <p className="text-[11px] md:text-xs font-medium text-slate-500 leading-relaxed mb-4">{blog.desc}</p>
-                      <button onClick={() => blog.fullContent && setSelectedBlog(blog)} className={`flex items-center gap-2 text-slate-900 font-black text-[9px] md:text-[10px] uppercase border-b border-slate-900 pb-1 hover:text-blue-600 hover:border-blue-600 transition-all ${blog.borderPos === 'right' ? 'ml-auto' : ''}`}>
+                      <p className="text-[11px] md:text-xs font-medium text-slate-500 leading-relaxed mb-4">{blog.description}</p>
+                      <button onClick={() => blog.fullContent && setSelectedBlog(blog)} className={`flex items-center gap-2 text-slate-900 font-black text-[9px] md:text-[10px] uppercase border-b border-slate-900 pb-1 hover:text-blue-600 hover:border-blue-600 transition-all ${idx % 2 !== 0 ? 'ml-auto' : ''}`}>
                         Read More <ArrowRight size={12} />
                       </button>
                     </div>

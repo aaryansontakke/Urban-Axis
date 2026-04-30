@@ -1,7 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../supabaseClient';
+import { db } from '../../firebaseConfig';
+import { collection, getDocs, doc, addDoc, updateDoc, deleteDoc, orderBy, query } from 'firebase/firestore';
 import { Plus, Pencil, Trash2, X, Save, Globe, MapPin, Upload, Loader2 } from 'lucide-react';
+
+const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dt69gyvun/image/upload';
+const UPLOAD_PRESET = 'Urban Axis'; 
 
 const EMPTY = { type: 'india', name: '', slug: '', tagline: '', description: '', image_url: '', display_order: 0, is_active: true };
 
@@ -18,8 +22,14 @@ const AdminCategories = () => {
   const [msg, setMsg]           = useState('');
 
   const load = async () => {
-    const { data } = await supabase.from('tour_categories').select('*').order('display_order');
-    setCats(data || []);
+    try {
+      const q = query(collection(db, 'tour_categories'), orderBy('display_order'));
+      const querySnapshot = await getDocs(q);
+      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setCats(data);
+    } catch (err) {
+      console.error("Error loading categories:", err);
+    }
   };
   useEffect(() => { load(); }, []);
 
@@ -37,7 +47,7 @@ const AdminCategories = () => {
     setShowForm(true);
   };
 
-  // --- NEW: Handle Image Upload to Supabase Storage ---
+  // --- Handle Image Upload to Cloudinary ---
   const handleImageUpload = async (e) => {
     try {
       const file = e.target.files[0];
@@ -45,23 +55,21 @@ const AdminCategories = () => {
 
       setUploading(true);
 
-      // 1. Create a unique file name
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `category-images/${fileName}`;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', 'category-images');
 
-      // 2. Upload file to Supabase Storage Bucket named 'images'
-      // NOTE: Make sure you have created a PUBLIC bucket named 'images' in Supabase
-      const { error: uploadError } = await supabase.storage
-        .from('category-images')
-        .upload(filePath, file);
+      const response = await fetch(CLOUDINARY_URL, {
+        method: 'POST',
+        body: formData,
+      });
 
-      if (uploadError) throw uploadError;
+      if (!response.ok) throw new Error('Upload failed');
 
-      // 3. Get the Public URL
-      const { data } = supabase.storage.from('category-images').getPublicUrl(filePath);
+      const data = await response.json();
       
-      setForm(prev => ({ ...prev, image_url: data.publicUrl }));
+      setForm(prev => ({ ...prev, image_url: data.secure_url }));
       setMsg('Image uploaded successfully!');
     } catch (error) {
       console.error('Error uploading:', error.message);
@@ -78,29 +86,34 @@ const AdminCategories = () => {
     const payload = { ...form };
     if (!payload.slug) payload.slug = toSlug(payload.name);
 
-    let err;
-    if (editing) {
-      ({ error: err } = await supabase.from('tour_categories').update(payload).eq('id', editing));
-    } else {
-      ({ error: err } = await supabase.from('tour_categories').insert(payload));
-    }
+    try {
+      if (editing) {
+        const catRef = doc(db, 'tour_categories', editing);
+        await updateDoc(catRef, payload);
+      } else {
+        await addDoc(collection(db, 'tour_categories'), payload);
+      }
 
-    if (err) {
-      setMsg('Error: ' + err.message);
-    } else {
       setMsg(editing ? 'Category updated!' : 'Category added!');
       setShowForm(false);
       setEditing(null);
       load();
+    } catch (err) {
+      setMsg('Error: ' + err.message);
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMsg(''), 3000);
     }
-    setSaving(false);
-    setTimeout(() => setMsg(''), 3000);
   };
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this category? All its packages will also be deleted.')) return;
-    await supabase.from('tour_categories').delete().eq('id', id);
-    load();
+    try {
+      await deleteDoc(doc(db, 'tour_categories', id));
+      load();
+    } catch (err) {
+      console.error("Error deleting category:", err);
+    }
   };
 
   return (

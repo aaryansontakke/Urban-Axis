@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, EffectCoverflow, Navigation } from 'swiper/modules';
 import { Link } from 'react-router-dom';
@@ -14,47 +14,39 @@ import 'swiper/css';
 import 'swiper/css/effect-coverflow';
 import 'swiper/css/navigation';
 
-const travelCards = [
-  { 
-    img: nepalImg, 
-    title: "NEPAL", 
-    sub: "Majestic Himalayan peaks and spiritual traditions.", 
-    // Example: Replace with actual Nepal Package ID from your DB
-    link: "/tours/international/nepal" 
-  },
-  { 
-    img: northEastImg, 
-    title: "THE BEST OF NORTH EAST", 
-    sub: "Explore Darjeeling, Gangtok, and Pelling.", 
-    // "Best of the North East" ID from your Supabase screenshot
-    link: "/tours/india/north-east" 
-  },
-  { 
-    img: telanganaImg, 
-    title: "TELANGANA", 
-    sub: "Ancient architecture and divine serenity.", 
-    link: "/tours/india/telangana" 
-  },
-  { 
-    img: kashmirImg, 
-    title: "KASHMIR", 
-    sub: "Snow-capped peaks and tranquil waters.", 
-    // "Karismatic Kerala" or similar specific package ID
-    link: "/tours/india/kashmir" 
-  },
-  { 
-    img: gujaratImg, 
-    title: "GUJARAT", 
-    sub: "White salt deserts and Asiatic Lions.", 
-    // "Enchanting Gujarat" ID from your Supabase screenshot
-    link: "/tours/india/gujarat" 
-  },
-];
-
-const multiCards = [...travelCards, ...travelCards];
+import { db } from '../firebaseConfig';
+import { collection, query, getDocs, orderBy } from 'firebase/firestore';
 
 const Tour = () => {
+  const [destinations, setDestinations] = useState([]);
+  const [loading, setLoading] = useState(true);
   const swiperRef = useRef(null);
+
+  useEffect(() => {
+    const fetchDestinations = async () => {
+      try {
+        const q = query(collection(db, 'featured_destinations'), orderBy('display_order'));
+        const snap = await getDocs(q);
+        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (data.length > 0) {
+          setDestinations(data);
+        } else {
+          // Fallback to empty or placeholders
+          setDestinations([]);
+        }
+      } catch (err) {
+        console.error("Error fetching destinations:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDestinations();
+  }, []);
+
+  if (loading) return null; // Or a skeleton
+
+  // Duplicate for infinite loop if needed, or just use loop={true} in Swiper
+  const multiCards = [...destinations, ...destinations];
 
   return (
     <section className="relative w-full bg-white flex flex-col items-center justify-start overflow-hidden py-10 md:py-20">
@@ -96,7 +88,7 @@ const Tour = () => {
                 <div className="card-outer-box w-full h-full overflow-hidden transition-all duration-700 border border-gray-400 shadow-2xl bg-white hover:border-blue-500">
                   <div className="h-[65%] w-full overflow-hidden">
                      <img 
-                       src={card.img} 
+                       src={card.image_url} 
                        alt={card.title} 
                        className="w-full h-full object-cover transition-transform duration-500 hover:scale-110" 
                      />
@@ -108,7 +100,7 @@ const Tour = () => {
                         {card.title}
                       </h3>
                       <p className="card-main-desc text-[10px] md:text-xs line-clamp-2 leading-tight text-gray-700">
-                        {card.sub}
+                        {card.subtitle}
                       </p>
                     </div>
                     
@@ -123,7 +115,7 @@ const Tour = () => {
         </Swiper>
       </div>
 
-      <style jsx global>{`
+      <style>{`
         .final-tour-slide { width: 330px !important; height: 440px !important; opacity: 0.7; transform: scale(0.85); transition: all 0.6s ease; }
         .swiper-slide-active { opacity: 1 !important; transform: scale(1) !important; z-index: 50; }
         .card-outer-box { border-radius: 20px; }

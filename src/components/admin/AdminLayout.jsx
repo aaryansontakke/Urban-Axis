@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, Outlet } from 'react-router-dom';
-import { supabase } from '../../supabaseClient';
+import { auth } from '../../firebaseConfig';
+import { signOut } from 'firebase/auth';
 import {
   LayoutDashboard, Globe, MapPin, Package,
   MessageSquare, LogOut, Menu, X, ChevronRight
@@ -18,8 +19,12 @@ const AdminLayout = () => {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/admin');
+    try {
+      await signOut(auth);
+      navigate('/admin');
+    } catch (err) {
+      console.error("Error signing out:", err);
+    }
   };
 
   return (

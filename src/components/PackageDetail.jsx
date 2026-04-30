@@ -8,7 +8,8 @@ import {
   Activity, ZoomIn, Info, Shield, Check, Calendar,
   ArrowRight, Plane, BedDouble, Utensils
 } from 'lucide-react';
-import { supabase } from '../supabaseClient';
+import { db } from '../firebaseConfig';
+import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 /* ═══════════════════════════════════════════════
    SAFE DATA HELPERS
@@ -130,7 +131,7 @@ const AccommodationTable = ({ rows }) => {
 
 /* ═══════════════════════════════════════════════
    ENQUIRY MODAL
-═══════════════════════════════════════════════ */
+────────────────────────────────────────────────────────── */
 const EnquiryModal = ({ pkg, onClose }) => {
   const [form, setForm] = useState({ name:'', phone:'', email:'', travel_date:'', pax:1, message:'' });
   const [sending, setSending] = useState(false);
@@ -141,11 +142,22 @@ const EnquiryModal = ({ pkg, onClose }) => {
   const submit = async (e) => {
     e.preventDefault(); setSending(true);
     try {
-      await supabase.from('enquiries').insert({ ...form, package_id: pkg?.id });
+      await addDoc(collection(db, 'enquiries'), {
+        ...form,
+        package_id: pkg?.id,
+        packageName: pkg?.name,
+        status: 'new',
+        created_at: serverTimestamp()
+      });
       setDone(true);
-    } catch { alert('Error sending request.'); }
-    finally { setSending(false); }
+    } catch (err) {
+      console.error("Error sending enquiry:", err);
+      alert('Error sending request.');
+    } finally {
+      setSending(false);
+    }
   };
+
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0a1628]/90 backdrop-blur-sm"
@@ -209,18 +221,33 @@ const PackageDetail = () => {
 
   useEffect(() => {
     if (!packageId) { setStatus('error'); return; }
-    (async () => {
+    const load = async () => {
       try {
-        const { data: p, error: pErr } = await supabase.from('tour_packages').select('*').eq('id', packageId).single();
-        if (pErr || !p) { setStatus('error'); return; }
+        const pkgRef = doc(db, 'tour_packages', packageId);
+        const pkgSnap = await getDoc(pkgRef);
+        
+        if (!pkgSnap.exists()) {
+          setStatus('error');
+          return;
+        }
+
+        const p = { id: pkgSnap.id, ...pkgSnap.data() };
         setPkg(p);
+
         if (p.category_id) {
-          const { data: c } = await supabase.from('tour_categories').select('*').eq('id', p.category_id).single();
-          if (c) setCat(c);
+          const catRef = doc(db, 'tour_categories', p.category_id);
+          const catSnap = await getDoc(catRef);
+          if (catSnap.exists()) {
+            setCat({ id: catSnap.id, ...catSnap.data() });
+          }
         }
         setStatus('ok');
-      } catch { setStatus('error'); }
-    })();
+      } catch (err) {
+        console.error("Error loading package detail:", err);
+        setStatus('error');
+      }
+    };
+    load();
   }, [packageId]);
 
   if (status === 'loading') return <div className="min-h-screen bg-white flex items-center justify-center font-bold text-slate-400">Loading Journey...</div>;

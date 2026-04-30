@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { supabase } from '../../supabaseClient';
+import { auth } from '../../firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const ProtectedRoute = ({ children }) => {
-  const [session, setSession] = useState(undefined);
+  const [user, setUser] = useState(undefined);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => subscription.unsubscribe();
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
   }, []);
 
-  if (session === undefined) {
+  if (user === undefined) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-blue-500 font-black tracking-widest uppercase text-sm animate-pulse">Loading...</div>
@@ -19,7 +21,7 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  return session ? children : <Navigate to="/admin" replace />;
+  return user ? children : <Navigate to="/admin" replace />;
 };
 
 export default ProtectedRoute;

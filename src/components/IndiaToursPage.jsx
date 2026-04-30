@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
+import { db } from '../firebaseConfig';
+import { collection, query, where, getDocs, orderBy, addDoc, serverTimestamp, limit } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Clock, ArrowRight, ArrowLeft, X, Send, Users, Calendar, CheckCircle } from 'lucide-react';
 
@@ -120,9 +121,21 @@ const EnquiryModal = ({ pkg, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    await supabase.from('enquiries').insert({ ...form, package_id: pkg.id });
-    setDone(true);
-    setSubmitting(false);
+    try {
+      await addDoc(collection(db, 'enquiries'), {
+        ...form,
+        package_id: pkg.id,
+        packageName: pkg.name, // Denormalized for admin
+        status: 'new',
+        created_at: serverTimestamp()
+      });
+      setDone(true);
+    } catch (err) {
+      console.error("Error submitting enquiry:", err);
+      alert("Failed to send enquiry. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -216,13 +229,37 @@ const MField = ({ label, value, onChange, required, placeholder, type = 'text', 
 ────────────────────────────────────────────────────────── */
 const IndiaToursList = () => {
   const [cats, setCats] = useState([]);
+  const [heroImage, setHeroImage] = useState("/India2.jpeg"); // Default fallback
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.from('tour_categories')
-      .select('*').eq('type', 'india').eq('is_active', true).order('display_order')
-      .then(({ data }) => { setCats(data || []); setLoading(false); });
+    const fetchCats = async () => {
+      try {
+        const q = query(
+          collection(db, 'tour_categories'), 
+          where('type', '==', 'india'), 
+          where('is_active', '==', true)
+        );
+        const querySnapshot = await getDocs(q);
+        const data = querySnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        setCats(data);
+
+        // Fetch Hero Image from settings
+        const { getDoc, doc } = await import('firebase/firestore');
+        const settingsSnap = await getDoc(doc(db, 'settings', 'india_hero_image'));
+        if (settingsSnap.exists()) {
+          setHeroImage(settingsSnap.data().value);
+        }
+      } catch (err) {
+        console.error("Error fetching data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCats();
   }, []);
 
   if (loading) return <Loader />;
@@ -234,7 +271,7 @@ const IndiaToursList = () => {
       <div className="relative h-[100vh] min-h-[600px] overflow-hidden flex items-center justify-center">
         <div className="absolute inset-0">
           <img
-            src="/India2.jpeg"
+            src={heroImage}
             alt="India Background"
             className="w-full h-full object-cover"
           />
@@ -309,12 +346,35 @@ const IndiaTourDetail = () => {
 
   useEffect(() => {
     const load = async () => {
-      const { data: catData } = await supabase.from('tour_categories').select('*').eq('slug', slug).eq('type', 'india').single();
-      if (!catData) { navigate('/tours/india'); return; }
-      setCat(catData);
-      const { data: pkgData } = await supabase.from('tour_packages').select('*').eq('category_id', catData.id).eq('is_active', true).order('display_order');
-      setPackages(pkgData || []);
-      setLoading(false);
+      try {
+        // Fetch Category
+        const catQuery = query(
+          collection(db, 'tour_categories'), 
+          where('slug', '==', slug), 
+          where('type', '==', 'india'),
+          limit(1)
+        );
+        const catSnap = await getDocs(catQuery);
+        if (catSnap.empty) { navigate('/tours/india'); return; }
+        
+        const catData = { id: catSnap.docs[0].id, ...catSnap.docs[0].data() };
+        setCat(catData);
+
+        // Fetch Packages
+        const pkgQuery = query(
+          collection(db, 'tour_packages'),
+          where('category_id', '==', catData.id),
+          where('is_active', '==', true),
+          orderBy('display_order')
+        );
+        const pkgSnap = await getDocs(pkgQuery);
+        const pkgData = pkgSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setPackages(pkgData);
+      } catch (err) {
+        console.error("Error loading tour detail:", err);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, [slug]);

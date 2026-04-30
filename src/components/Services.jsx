@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Image Imports
@@ -13,21 +13,40 @@ import VisaImg from '/image/Visa.jpeg';
 import PassportImg from '/image/Passport.jpeg';
 import ForexImg from '/image/Forex.jpeg';
 
+import { db } from '../firebaseConfig';
+import { collection, query, getDocs, orderBy } from 'firebase/firestore';
+
 const Services = () => {
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedServiceForForm, setSelectedServiceForForm] = useState(null);
 
-  const services = [
-    { title: "Transportation", desc: "Your choice of cars and reliable services at the best available prices.", img: TransportationImg },
-    { title: "Hotels", desc: "Get the best hotel deals with our assurance of premium quality service.", img: HotelsImg },
-    { title: "Wedding Events", desc: "Every wedding we undertake is a unique package designed for your perfect day.", img: WeddingImg },
-    { title: "Flights", desc: "Time your flights to suit your holiday itinerary and eliminate delays.", img: FlightsImg },
-    { title: "MICE", desc: "Specialized niche of group tourism dedicated to planning and facilitating conferences.", img: MiceImg },
-    { title: "Cruises", desc: "Find the right package and set sail for your dream cruise vacation.", img: CruisesImg },
-    { title: "Visa", desc: "Expert assistance in navigating international travel documentation.", img: VisaImg },
-    { title: "Passport", desc: "Facilitating appointments and documentation for swift passport processing.", img: PassportImg },
-    { title: "Forex", desc: "Authorized RBI retail forex dealers providing seamless currency solutions.", img: ForexImg }
-  ];
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const q = query(collection(db, 'services'), orderBy('display_order'));
+        const snap = await getDocs(q);
+        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (data.length > 0) {
+          setServices(data);
+        } else {
+          setServices([]);
+        }
+      } catch (err) {
+        console.error("Error fetching services:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchServices();
+  }, []);
+
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-white">
+       <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
 
   const handleInquiryClick = (service) => {
     setSelectedServiceForForm(service);
@@ -85,7 +104,7 @@ const Services = () => {
                   onClick={() => handleInquiryClick(service)}
                 >
                   <img 
-                    src={service.img} 
+                    src={service.image_url} 
                     alt={service.title} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
                   />
@@ -98,7 +117,7 @@ const Services = () => {
                 
                 {/* Description */}
                 <p className="text-slate-500 text-[12px] leading-relaxed font-medium mb-6 px-4 line-clamp-3 flex-1">
-                  {service.desc}
+                  {service.description}
                 </p>
 
                 {/* Button */}
@@ -170,7 +189,7 @@ const Services = () => {
                 <div className="mt-10 pt-8 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
                   <div className="text-center md:text-left">
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Urgent Support</p>
-                    <p className="text-lg font-black text-slate-900">+91 98408 87777</p>
+                    <p className="text-lg font-black text-slate-900">+91 7517502204</p>
                   </div>
                   <div className="px-4 py-2 bg-blue-50 border border-blue-100">
                     <p className="text-[9px] font-black text-blue-600 uppercase tracking-tighter">Verified Agency</p>

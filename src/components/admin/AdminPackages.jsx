@@ -1,14 +1,18 @@
 
 
 import React, { useEffect, useState, useRef } from 'react';
-import { supabase } from '../../supabaseClient';
+import { db } from '../../firebaseConfig';
+import { collection, getDocs, doc, addDoc, updateDoc, deleteDoc, orderBy, query } from 'firebase/firestore';
 import {
   Plus, Pencil, Trash2, X, Save,
   Star, Eye, EyeOff, Search,
   PlusCircle, MinusCircle,
   Upload, Link as LinkIcon, Copy, Check,
-  Image as ImageIcon, Loader2
+  ImageIcon, Loader2
 } from 'lucide-react';
+
+const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dt69gyvun/image/upload';
+const UPLOAD_PRESET = 'Urban Axis'; 
 
 
 /* ══════════════════════════════════════════════════════════════
@@ -39,17 +43,21 @@ const ImageUploader = ({ label, currentUrl, onUpload }) => {
     setError('');
     setUploading(true);
     try {
-      const ext  = file.name.split('.').pop();
-      const path = `packages/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from('package-images')
-        .upload(path, file, { cacheControl: '3600', upsert: false });
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', 'packages');
 
-      if (upErr) { setError('Upload failed: ' + upErr.message); setUploading(false); return; }
+      const response = await fetch(CLOUDINARY_URL, {
+        method: 'POST',
+        body: formData,
+      });
 
-      const { data } = supabase.storage.from('package-images').getPublicUrl(path);
-      onUpload(data.publicUrl);
-      setUrlInput(data.publicUrl);
+      if (!response.ok) throw new Error('Upload failed');
+
+      const data = await response.json();
+      onUpload(data.secure_url);
+      setUrlInput(data.secure_url);
     } catch (e) {
       setError('Upload error: ' + e.message);
     }
@@ -328,15 +336,28 @@ const AdminPackages = () => {
   const [activeTab, setActiveTab]   = useState('basic');
 
   const load = async () => {
-    const [{ data: pkgs }, { data: categories }] = await Promise.all([
-      supabase.from('tour_packages')
-        .select('*, tour_categories(name,type,slug)')
-        .order('created_at', { ascending:false }),
-      supabase.from('tour_categories')
-        .select('*').order('type').order('display_order'),
-    ]);
-    setPackages(pkgs || []);
-    setCats(categories || []);
+    try {
+      const [pkgSnap, catSnap] = await Promise.all([
+        getDocs(query(collection(db, 'tour_packages'), orderBy('display_order'))),
+        getDocs(query(collection(db, 'tour_categories'), orderBy('display_order')))
+      ]);
+
+      const categories = catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const pkgs = pkgSnap.docs.map(doc => {
+        const data = doc.data();
+        const category = categories.find(c => c.id === data.category_id);
+        return {
+          id: doc.id,
+          ...data,
+          tour_categories: category // for compatibility with existing UI
+        };
+      });
+
+      setPackages(pkgs);
+      setCats(categories);
+    } catch (err) {
+      console.error("Error loading packages:", err);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -395,37 +416,52 @@ const AdminPackages = () => {
       itinerary:     form.itinerary.length     ? form.itinerary     : null,
       accommodation: form.accommodation.length ? form.accommodation : null,
     };
-    delete payload.tour_categories;
 
-    let err;
-    if (editing) {
-      ({ error:err } = await supabase.from('tour_packages').update(payload).eq('id', editing));
-    } else {
-      ({ error:err } = await supabase.from('tour_packages').insert(payload));
-    }
-    if (err) { setMsg('Error: '+err.message); }
-    else {
+    try {
+      if (editing) {
+        const pkgRef = doc(db, 'tour_packages', editing);
+        await updateDoc(pkgRef, payload);
+      } else {
+        await addDoc(collection(db, 'tour_packages'), payload);
+      }
       setMsg(editing ? 'Package updated!' : 'Package added!');
       setShowForm(false); setEditing(null); load();
+    } catch (err) {
+      setMsg('Error: ' + err.message);
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMsg(''), 3000);
     }
-    setSaving(false);
-    setTimeout(() => setMsg(''), 3000);
   };
 
   const handleDelete = async id => {
     if (!confirm('Delete this package?')) return;
-    await supabase.from('tour_packages').delete().eq('id', id);
-    load();
+    try {
+      await deleteDoc(doc(db, 'tour_packages', id));
+      load();
+    } catch (err) {
+      console.error("Error deleting package:", err);
+    }
   };
 
   const toggleFeatured = async pkg => {
-    await supabase.from('tour_packages').update({ is_featured: !pkg.is_featured }).eq('id', pkg.id);
-    load();
+    try {
+      const pkgRef = doc(db, 'tour_packages', pkg.id);
+      await updateDoc(pkgRef, { is_featured: !pkg.is_featured });
+      load();
+    } catch (err) {
+      console.error("Error toggling featured:", err);
+    }
   };
 
   const toggleActive = async pkg => {
-    await supabase.from('tour_packages').update({ is_active: !pkg.is_active }).eq('id', pkg.id);
-    load();
+    try {
+      const pkgRef = doc(db, 'tour_packages', pkg.id);
+      await updateDoc(pkgRef, { is_active: !pkg.is_active });
+      load();
+    } catch (err) {
+      console.error("Error toggling active:", err);
+    }
   };
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));

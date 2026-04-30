@@ -3,8 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const paymentRoutes = require('./routes/payment');
 
-const path = require('path');
-dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config();
 
 const app = express();
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { supabase } from '../../supabaseClient';
+import { auth } from '../../firebaseConfig';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
 
@@ -15,13 +16,15 @@ const AdminLogin = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setError('Invalid credentials. Please try again.');
-    } else {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
       navigate('/admin/dashboard');
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('Invalid credentials. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
