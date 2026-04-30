@@ -38,6 +38,9 @@ import ProtectedRoute  from './components/admin/ProtectedRoute';
 // ── New Admin Backend Components ──────────────────────────────────────
 import ImageUploader       from './components/admin/ImageUploader';
 import AccommodationEditor from './components/admin/AccommodationEditor';
+import AdminHeroSlider     from './components/admin/AdminHeroSlider';
+import AdminFeaturedDestinations from './components/admin/AdminFeaturedDestinations';
+import AdminPayments       from './components/admin/AdminPayments';
 
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -83,6 +86,9 @@ function App() {
           {/* Backend Fetching Components Added Here */}
           <Route path="uploader"      element={<ImageUploader/>}/>
           <Route path="accommodation" element={<AccommodationEditor/>}/>
+          <Route path="hero-slider"    element={<AdminHeroSlider/>}/>
+          <Route path="featured-tours" element={<AdminFeaturedDestinations/>}/>
+          <Route path="payments"      element={<AdminPayments/>}/>
         </Route>
 
         {/* ── PUBLIC HOME ROUTES ── */}

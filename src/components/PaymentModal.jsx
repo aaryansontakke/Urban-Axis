@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, CreditCard, ShieldCheck, IndianRupee, Lock, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { loadRazorpayScript } from '../utils/razorpayLoader';
+import { db } from '../firebaseConfig';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const PaymentModal = ({ isOpen, onClose }) => {
     const [amount, setAmount] = useState('');
@@ -80,6 +82,19 @@ const PaymentModal = ({ isOpen, onClose }) => {
                     });
 
                     if (verifyRes.ok) {
+                        // Save to Firestore
+                        try {
+                            await addDoc(collection(db, 'payments'), {
+                                amount: Number(amount),
+                                order_id: response.razorpay_order_id,
+                                payment_id: response.razorpay_payment_id,
+                                status: 'success',
+                                created_at: serverTimestamp()
+                            });
+                        } catch (firestoreErr) {
+                            console.error("Error saving payment to Firestore:", firestoreErr);
+                        }
+
                         setShowSuccess(true);
                         // Auto close after 4 seconds and redirect to home
                         setTimeout(() => {

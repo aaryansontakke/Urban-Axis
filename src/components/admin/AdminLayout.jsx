@@ -4,14 +4,18 @@ import { auth } from '../../firebaseConfig';
 import { signOut } from 'firebase/auth';
 import {
   LayoutDashboard, Globe, MapPin, Package,
-  MessageSquare, LogOut, Menu, X, ChevronRight
+  MessageSquare, LogOut, Menu, X, ChevronRight,
+  Layout, Star, CreditCard
 } from 'lucide-react';
 
 const NAV = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/admin/categories', icon: Globe, label: 'Categories' },
   { to: '/admin/packages', icon: Package, label: 'Packages' },
+  { to: '/admin/hero-slider', icon: Layout, label: 'Hero Slider' },
+  { to: '/admin/featured-tours', icon: Star, label: 'Featured Tours' },
   { to: '/admin/enquiries', icon: MessageSquare, label: 'Enquiries' },
+  { to: '/admin/payments', icon: CreditCard, label: 'Payments' },
 ];
 
 const AdminLayout = () => {
