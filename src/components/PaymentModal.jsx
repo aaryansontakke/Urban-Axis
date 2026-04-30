@@ -60,7 +60,7 @@ const PaymentModal = ({ isOpen, onClose }) => {
             const orderData = await orderRes.json();
 
             const options = {
-                key: import.meta.env.VITE_RAZORPAY_KEY_ID || `rzp_test_SjIDcIV9X0w4LP`,
+                key: import.meta.env.VITE_RAZORPAY_KEY_ID,
                 amount: orderData.amount,
                 currency: orderData.currency,
                 order_id: orderData.id,
