@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../../firebaseConfig';
 import { collection, query, getDocs, orderBy, limit, where } from 'firebase/firestore';
-import { Search, IndianRupee, Calendar, Hash, CheckCircle, RefreshCcw, Filter, ExternalLink } from 'lucide-react';
+import { Search, IndianRupee, Calendar, Hash, CheckCircle, RefreshCcw, Filter, ExternalLink, Loader2 } from 'lucide-react';
 
 const AdminPayments = () => {
   const [payments, setPayments] = useState([]);
