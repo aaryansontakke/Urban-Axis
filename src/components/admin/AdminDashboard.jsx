@@ -19,13 +19,21 @@ const StatCard = ({ icon: Icon, label, value, color, to }) => (
 );
 
 const AdminDashboard = () => {
-  const [stats, setStats] = useState();
+  const [stats, setStats] = useState({
+    totalPkg: 0,
+    indCat: 0,
+    intCat: 0,
+    featured: 0,
+    newEnq: 0
+  });
   const [recentEnquiries, setRecentEnquiries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const load = async () => {
       try {
+        setError(null);
         const pkgRef = collection(db, 'tour_packages');
         const catRef = collection(db, 'tour_categories');
         const enqRef = collection(db, 'enquiries');
@@ -62,6 +70,7 @@ const AdminDashboard = () => {
         setRecentEnquiries(recent);
       } catch (err) {
         console.error("Error loading dashboard stats:", err);
+        setError("Failed to load dashboard data. Please check your Firestore security rules and network connection.");
       } finally {
         setLoading(false);
       }
@@ -81,6 +90,12 @@ const AdminDashboard = () => {
         <h1 className="text-white text-2xl font-black uppercase tracking-tight">Dashboard</h1>
         <p className="text-slate-400 text-sm mt-1">Welcome back. Here's an overview of your tour data.</p>
       </div>
+
+      {error && (
+        <div className="mb-6 p-4 rounded-xl bg-red-950/50 border border-red-800 text-red-300 text-sm">
+          <strong className="font-semibold">Permission / Loading Error: </strong> {error}
+        </div>
+      )}
 
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
